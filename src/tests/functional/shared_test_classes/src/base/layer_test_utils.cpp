@@ -127,10 +127,18 @@ InferenceEngine::Blob::Ptr LayerTestsCommon::GenerateInput(const InferenceEngine
 void LayerTestsCommon::Compare(const std::vector<std::pair<ngraph::element::Type, std::vector<std::uint8_t>>> &expectedOutputs,
                                const std::vector<InferenceEngine::Blob::Ptr> &actualOutputs,
                                float threshold, float abs_threshold) {
+    bool failed = false;
     for (std::size_t outputIndex = 0; outputIndex < expectedOutputs.size(); ++outputIndex) {
         const auto &expected = expectedOutputs[outputIndex];
         const auto &actual = actualOutputs[outputIndex];
-        Compare(expected, actual, threshold, abs_threshold);
+        try {
+            Compare(expected, actual, threshold, abs_threshold);
+        } catch (...) {
+            failed = true;
+        }
+    }
+    if (failed) {
+        throw std::runtime_error("Output tensors are different from reference implementation.");
     }
 }
 

@@ -8,6 +8,7 @@
 #include "shared_test_classes/base/layer_test_utils.hpp"
 
 #include "functional_test_utils/plugin_cache.hpp"
+#include <iostream>
 
 namespace ov {
 namespace test {
@@ -195,7 +196,13 @@ void MulticlassNmsLayerTest::compare(const std::vector<ov::Tensor> &expectedOutp
     ASSERT_TRUE(batchIndex > -1) << "Expect to get output index for 'selected_num'";
 
     // reserve order could make sure output 'selected_num' get checked first.
+    bool failed = false;
     for (int outputIndex = static_cast<int>(expectedOutputs.size()) - 1; outputIndex >= 0; outputIndex--) {
+        if (LayerTestsUtils::LayerTestsCommon::tensor_dump_enabled()) {
+            std::cout << "\n===========================================================================\n";
+            std::cout << "Output tensor " << outputIndex << "\n";
+        }
+        try {
         const auto& expected = expectedOutputs[outputIndex];
         const auto& actual = actualOutputs[outputIndex];
         const auto actualBuffer = static_cast<uint8_t*>(actual.data());
@@ -216,7 +223,11 @@ void MulticlassNmsLayerTest::compare(const std::vector<ov::Tensor> &expectedOutp
             auto expected_offset = 0;
             auto actual_offset = 0;
             for (size_t i = 0; i < numPerBatch.size(); i++) {
+                if (LayerTestsUtils::LayerTestsCommon::tensor_dump_enabled()) {
+                    std::cout << "Batch " << i << "\n";
+                }
                 auto validNums = numPerBatch[i];
+                try {
                 switch (precision) {
                 case ov::element::f32: {
                     switch (expected.get_element_type()) {
@@ -286,6 +297,9 @@ void MulticlassNmsLayerTest::compare(const std::vector<ov::Tensor> &expectedOutp
                 default:
                     FAIL() << "Comparator for " << precision << " precision isn't supported";
                 }
+                } catch (...) {
+                    failed = true;
+                }
                 if (!m_outStaticShape) {
                     expected_offset += validNums;
                     actual_offset += validNums;
@@ -334,6 +348,12 @@ void MulticlassNmsLayerTest::compare(const std::vector<ov::Tensor> &expectedOutp
                 FAIL() << "Comparator for " << precision << " precision isn't supported";
             }
         }
+        } catch (...) {
+            failed = true;
+        }
+    }
+    if (failed) {
+        throw std::runtime_error("Output tensors are different from reference implementation.");
     }
 }
 

@@ -33,6 +33,10 @@
 #include "ngraph_functions/utils/ngraph_helpers.hpp"
 #include "ngraph_functions/pass/convert_prc.hpp"
 
+#include <sstream>
+#include <iostream>
+
+
 namespace LayerTestsUtils {
 
 using TargetDevice = std::string;
@@ -99,33 +103,79 @@ public:
     void showRuntimePrecisions();
 #endif
 
+    static bool error_dumps_enabled() {
+        static bool enabled = (nullptr != ::getenv("OV_GTEST_ERROR_DUMPS_ENABLED"));
+        return enabled;
+    }
+    static bool tensor_dump_enabled() {
+        static bool enabled = (nullptr != ::getenv("OV_GTEST_TENSOR_DUMP_ENABLED"));
+        return enabled;
+    }
+    static int tensor_dump_num_elements_per_line() {
+        static int num = []() {
+            const char* varname = "OV_GTEST_TENSOR_DUM_NUM_ELEMENTS_PER_LINE";
+            return (nullptr == ::getenv(varname)) ? 16 : ::atoi(::getenv(varname));
+        }();
+        return num;
+    }
+
     template<class T_IE, class T_NGRAPH>
     static void Compare(const T_NGRAPH *expected, const T_IE *actual, std::size_t size, float threshold, float abs_threshold = -1.f) {
+        bool equal = true;
+        std::ostringstream err_strs;
+        std::ostringstream s2s;
+        s2s << std::setprecision(6) << std::fixed;
+        int elem_in_line = 0;
         for (std::size_t i = 0; i < size; ++i) {
             const T_NGRAPH &ref = expected[i];
             const auto &res = actual[i];
             const auto absoluteDifference = CommonTestUtils::ie_abs(res - ref);
+            bool mismatch = false;
             if (abs_threshold > 0.f && absoluteDifference > abs_threshold) {
-                IE_THROW() << "Absolute comparison of values expected: " << std::to_string(ref) << " and actual: " << std::to_string(res)
-                           << " at index " << i << " with absolute threshold " << abs_threshold
-                           << " failed";
+                mismatch = true;
+                err_strs << "Absolute comparison of values expected: " << std::to_string(ref) << " and actual: " << std::to_string(res)
+                         << " at index " << i << " with absolute threshold " << abs_threshold
+                         << " failed\n";
+            } else if (absoluteDifference > threshold) {
+                double max;
+                if (sizeof(T_IE) < sizeof(T_NGRAPH)) {
+                    max = std::max(CommonTestUtils::ie_abs(T_NGRAPH(res)), CommonTestUtils::ie_abs(ref));
+                } else {
+                    max = std::max(CommonTestUtils::ie_abs(res), CommonTestUtils::ie_abs(T_IE(ref)));
+                }
+                double diff = static_cast<float>(absoluteDifference) / max;
+                if (max == 0 || (diff > static_cast<float>(threshold)) ||
+                    (std::isnan(static_cast<float>(res)) ^ std::isnan(static_cast<float>(ref)))) {
+                    mismatch = true;
+                    err_strs << "Relative comparison of values expected: " << std::to_string(ref) << " and actual: " << std::to_string(res)
+                             << " at index " << i << " with threshold " << threshold
+                             << " failed";
+                }
             }
-            if (absoluteDifference <= threshold) {
-                continue;
-            }
-            double max;
-            if (sizeof(T_IE) < sizeof(T_NGRAPH)) {
-                max = std::max(CommonTestUtils::ie_abs(T_NGRAPH(res)), CommonTestUtils::ie_abs(ref));
+            if (mismatch) {
+                equal = false;
+                s2s << ref << "|" << res << "\t";
             } else {
-                max = std::max(CommonTestUtils::ie_abs(res), CommonTestUtils::ie_abs(T_IE(ref)));
+                s2s << "\033[0;32m" << ref << "|" << res << "\033[0m" << "\t";
             }
-            double diff = static_cast<float>(absoluteDifference) / max;
-            if (max == 0 || (diff > static_cast<float>(threshold)) ||
-                (std::isnan(static_cast<float>(res)) ^ std::isnan(static_cast<float>(ref)))) {
-                IE_THROW() << "Relative comparison of values expected: " << std::to_string(ref) << " and actual: " << std::to_string(res)
-                           << " at index " << i << " with threshold " << threshold
-                           << " failed";
+            ++elem_in_line;
+            if (elem_in_line == tensor_dump_num_elements_per_line()) {
+                s2s << "\n";
+                elem_in_line = 0;
             }
+        }
+        if (error_dumps_enabled()) {
+            std::cout
+                << err_strs.str()
+                << "\n===========================================================================\n";
+        }
+        if (tensor_dump_enabled()) {
+            std::cout
+                << s2s.str()
+                << "\n===========================================================================\n";
+        }
+        if (!equal) {
+            throw std::runtime_error("Output tensors are different from reference implementation.");;
         }
     }
 
