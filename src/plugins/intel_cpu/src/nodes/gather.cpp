@@ -167,7 +167,7 @@ void Gather::createPrimitive() {
             jitKernel.reset(new jitUniGatherKernel<x64::avx2>(jcp));
         }
         if (jitKernel) {
-            jitKernel->create_ker();
+            jitKernel->create_kernel();
 
             if (!isDynamicNode()) {
                 const uint64_t dataElPerVec = jitKernel->getDataElPerVec();

@@ -26,7 +26,7 @@ const unsigned jitGatherKernelBase::incVec[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
 
 template <x64::cpu_isa_t isa>
 jitUniGatherKernel<isa>::jitUniGatherKernel(const jGatherConfParams& jcp) :
-        jitGatherKernelBase(jcp), x64::jit_generator(jit_name()) {
+        jitGatherKernelBase(isa, jcp) {
     vlen = x64::cpu_isa_traits<isa>::vlen;
     dataElPerVec = vlen / jcp.dataTypeSize;
     idxElPerVec = vlen / indicesTypeSize;
@@ -45,17 +45,7 @@ jitUniGatherKernel<isa>::jitUniGatherKernel(const jGatherConfParams& jcp) :
 }
 
 template <x64::cpu_isa_t isa>
-void jitUniGatherKernel<isa>::create_ker() {
-    auto code = x64::jit_generator::create_kernel();
-    if (code != dnnl::impl::status::success)
-        IE_THROW() << "Could not create Gather kernel. Error code: " << std::to_string(code);
-    ker_ = (decltype(ker_))jit_ker();
-}
-
-template <x64::cpu_isa_t isa>
-void jitUniGatherKernel<isa>::generate() {
-    this->preamble();
-
+void jitUniGatherKernel<isa>::generate_impl() {
     mov(regSrc, ptr[regParams + GET_OFF(src)]);
     mov(regDst, ptr[regParams + GET_OFF(dst)]);
     mov(regIndices, ptr[regParams + GET_OFF(indices)]);
@@ -284,8 +274,6 @@ void jitUniGatherKernel<isa>::generate() {
         }
         L(lEnd);
     }
-
-    this->postamble();
 }
 
 template <>

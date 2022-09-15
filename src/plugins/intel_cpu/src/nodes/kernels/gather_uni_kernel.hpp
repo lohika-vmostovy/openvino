@@ -24,6 +24,7 @@
 
 #include "cpu/x64/jit_generator.hpp"
 #include <dnnl_types.h>
+#include "jit_kernel.hpp"
 
 namespace ov {
 namespace intel_cpu {
@@ -69,16 +70,11 @@ struct gatherJitExecArgs {
     uint64_t betweenBatchAndAxisIter;
 };
 
-struct jitGatherKernelBase {
-    void (*ker_)(const gatherJitExecArgs *);
-    void operator()(const gatherJitExecArgs *args) {
-        assert(ker_);
-        ker_(args);
-    }
-    explicit jitGatherKernelBase(const jGatherConfParams& jcp) : ker_(nullptr), jcp(jcp) {}
+struct jitGatherKernelBase : public jit_kernel<jGatherConfParams, gatherJitExecArgs> {
+    explicit jitGatherKernelBase(x64::cpu_isa_t max_cpu_isa, const jGatherConfParams& jcp)
+        : jit_kernel(max_cpu_isa, jcp) {}
     virtual ~jitGatherKernelBase() {}
 
-    virtual void create_ker() = 0;
     uint64_t getVecLen() {
         return vlen;
     }
@@ -108,13 +104,12 @@ protected:
 };
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
-struct jitUniGatherKernel : public jitGatherKernelBase, public dnnl::impl::cpu::x64::jit_generator {
+struct jitUniGatherKernel : public jitGatherKernelBase {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jitUniGatherKernel)
 
     explicit jitUniGatherKernel(const jGatherConfParams& jcp);
 
-    void create_ker() override;
-    void generate() override;
+    void generate_impl() override;
 
     bool isSupportedConfiguration(uint64_t afterAxisSize) override;
 
@@ -183,7 +178,6 @@ protected:
     Xbyak::Xmm xmmSrcBeforeAxisSum = Xbyak::Xmm(vmmSrcBeforeAxisSumB.getIdx());
     Xbyak::Xmm xmmSpecIdxSizeB = Xbyak::Xmm(vmmSpecIdxSizeB.getIdx());
     Xbyak::Xmm xmmSpecIdxB = Xbyak::Xmm(vmmSpecIdxB.getIdx());
-
 
     void calcSrcShiftLong(Vmm* vAuxPool, bool shiftFirst = true);
     void calcSrcShiftLongBlock(Vmm* vAuxPool, bool shiftFirst = true);
