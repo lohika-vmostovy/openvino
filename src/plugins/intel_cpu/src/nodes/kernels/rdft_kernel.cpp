@@ -11,14 +11,12 @@ namespace intel_cpu {
 #define GET_OFF(field) offsetof(jit_dft_args, field)
 
 template <cpu_isa_t isa>
-void jit_dft_kernel_f32<isa>::generate() {
+void jit_dft_kernel_f32<isa>::generate_impl() {
     using namespace Xbyak::util;
     using Xbyak::Label;
     using Xbyak::Xmm;
     using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm,
                                       isa == cpu::x64::avx2, Xbyak::Ymm, Xbyak::Zmm>::type;
-
-    this->preamble();
 
     int input_type_size = 0;
     int output_type_size = 0;
@@ -389,8 +387,6 @@ void jit_dft_kernel_f32<isa>::generate() {
         cmp(output_end, 0);
         ja(loop_over_output, T_NEAR);
     }
-
-    this->postamble();
 }
 
 template <cpu_isa_t isa>

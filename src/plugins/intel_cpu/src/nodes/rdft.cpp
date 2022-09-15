@@ -676,9 +676,9 @@ struct RDFTJitExecutor : public RDFTExecutor {
         }
 
         if (rdftKernel)
-            rdftKernel->create_ker();
+            rdftKernel->create_kernel();
         if (dftKernel)
-            dftKernel->create_ker();
+            dftKernel->create_kernel();
     }
 
     std::vector<float> generateTwiddlesDFT(size_t inputSize, size_t outputSize, enum dft_type type) override {
