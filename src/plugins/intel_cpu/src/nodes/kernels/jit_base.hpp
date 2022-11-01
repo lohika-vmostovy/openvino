@@ -102,9 +102,9 @@ public:
     void uni_vaddps(const Xbyak::Xmm &x,
                     const Xbyak::Xmm &op1,
                     const Xbyak::Operand &op2) {
-        if (is_valid_isa(x64::avx))
+        if (is_valid_isa(x64::avx)) {
             vaddps(x, op1, op2);
-        else {
+        } else {
             if (x.getIdx() == op1.getIdx()) {
                 addps(x, op2);
             } else if (x.isEqualIfNotInherited(op2)) {

@@ -36,7 +36,7 @@ public:
 
         this->postamble();
 
-        for(auto& record : emitters_map_) {
+        for (auto& record : emitters_map_) {
             record.second->emit_data();
         }
     }
