@@ -44,7 +44,7 @@ public:
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_dft_kernel_f32)
 
     jit_dft_kernel_f32(bool is_inverse, dft_type type)
-        : jit_dft_kernel(isa, {}), is_inverse_{is_inverse}, kernel_type_{type} {}
+        : jit_dft_kernel(jit_name(), isa, {}), is_inverse_{is_inverse}, kernel_type_{type} {}
 
     void generate_impl() override;
 

@@ -26,8 +26,8 @@ class jit_kernel : public jit_kernel_base {
 public:
     using kernel_func = void (*)(const jit_call_args *);
 
-    explicit jit_kernel(x64::cpu_isa_t max_cpu_isa, const jit_params &jqp)
-            : jit_kernel_base{max_cpu_isa}, kernel_{nullptr}, params_{jqp} {}
+    explicit jit_kernel(const char *name, x64::cpu_isa_t max_cpu_isa, const jit_params &jqp)
+            : jit_kernel_base{name, max_cpu_isa}, kernel_{nullptr}, params_{jqp} {}
     ~jit_kernel() override = default;
 
     status_t create_kernel() override {

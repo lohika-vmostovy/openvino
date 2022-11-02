@@ -71,8 +71,8 @@ struct gatherJitExecArgs {
 };
 
 struct jitGatherKernelBase : public jit_kernel<jGatherConfParams, gatherJitExecArgs> {
-    explicit jitGatherKernelBase(x64::cpu_isa_t max_cpu_isa, const jGatherConfParams& jcp)
-        : jit_kernel(max_cpu_isa, jcp) {}
+    explicit jitGatherKernelBase(const char *name, x64::cpu_isa_t max_cpu_isa, const jGatherConfParams& jcp)
+        : jit_kernel(name, max_cpu_isa, jcp) {}
     virtual ~jitGatherKernelBase() {}
 
     uint64_t getVecLen() {

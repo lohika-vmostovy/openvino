@@ -26,7 +26,7 @@ const unsigned jitGatherKernelBase::incVec[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
 
 template <x64::cpu_isa_t isa>
 jitUniGatherKernel<isa>::jitUniGatherKernel(const jGatherConfParams& jcp) :
-        jitGatherKernelBase(isa, jcp) {
+        jitGatherKernelBase(jit_name(), isa, jcp) {
     vlen = x64::cpu_isa_traits<isa>::vlen;
     dataElPerVec = vlen / jcp.dataTypeSize;
     idxElPerVec = vlen / indicesTypeSize;

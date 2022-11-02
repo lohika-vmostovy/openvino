@@ -27,8 +27,8 @@ public:
     static constexpr size_t ymm_len = 32;
     static constexpr size_t zmm_len = 64;
 
-    explicit jit_base(x64::cpu_isa_t max_cpu_isa)
-        : x64::jit_generator{nullptr, 256 * 1024, true, max_cpu_isa}
+    explicit jit_base(const char *name, x64::cpu_isa_t max_cpu_isa)
+        : x64::jit_generator{name, nullptr, 256 * 1024, true, max_cpu_isa}
         , max_cpu_isa_{max_cpu_isa} {}
     virtual ~jit_base() = default;
 
