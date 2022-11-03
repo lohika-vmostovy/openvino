@@ -15,9 +15,6 @@
 namespace ov {
 namespace intel_cpu {
 
-using namespace dnnl::impl;
-using namespace dnnl::impl::cpu;
-
 class jit_kernel_base : public jit_base {
 public:
     using jit_base::jit_base;
