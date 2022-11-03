@@ -5,13 +5,12 @@
 #pragma once
 
 #include <string>
-#include <vector>
 #include <unordered_map>
-#include <math.h>
-#include <dnnl_extension_utils.h>
-#include <cpu/x64/jit_generator.hpp>
-#include <cpu/x64/cpu_isa_traits.hpp>
+#include <memory>
 #include "jit_base.hpp"
+#include "emitters/jit_emitter.hpp"
+#include "registers_pool.hpp"
+#include "stack_allocator.hpp"
 
 namespace ov {
 namespace intel_cpu {
