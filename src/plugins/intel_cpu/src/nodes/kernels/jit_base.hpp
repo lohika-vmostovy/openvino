@@ -86,17 +86,17 @@ public:
         size_t offset = 0;
         for (const auto& xmm : xmms) {
             if (xmm.isXMM()) {
-                uni_vmovdqu(ptr[rsp + offset], xmm);
+                uni_vmovdqu(xmm, ptr[rsp + offset]);
                 offset += xmm_len;
             } else if (xmm.isYMM()) {
-                uni_vmovdqu(ptr[rsp + offset], Xbyak::Ymm{xmm.getIdx()});
+                uni_vmovdqu(Xbyak::Ymm{xmm.getIdx()}, ptr[rsp + offset]);
                 offset += ymm_len;
             } else if (xmm.isZMM()) {
-                uni_vmovdqu(ptr[rsp + offset], Xbyak::Zmm{xmm.getIdx()});
+                uni_vmovdqu(Xbyak::Zmm{xmm.getIdx()}, ptr[rsp + offset]);
                 offset += zmm_len;
             }
         }
-        add(rsp, get_regs_size(xmms));
+        add(rsp, offset);
     }
 
     void uni_vaddps(const Xbyak::Xmm &x,
