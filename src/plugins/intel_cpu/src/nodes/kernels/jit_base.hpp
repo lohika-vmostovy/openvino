@@ -140,6 +140,9 @@ public:
         vsubps(x, op1, op2);
     }
 
+    static constexpr unsigned VCMPPS_LE = 0x02;
+    static constexpr unsigned VCMPPS_GT = 0x0e;
+
     void uni_vcmpps(const Xbyak::Xmm &x,
                     const Xbyak::Xmm &op1,
                     const Xbyak::Operand &op2,
