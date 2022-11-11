@@ -117,7 +117,8 @@ private:
             const float* const box_coords = &args->coords_ptr[args->boxes_ptr[i].box_idx * 4];
             for (int j = num_boxes_selected - 1; j >= 0; j--) {
                 const float iou = intersection_over_union(box_coords,
-                                                          &args->coords_ptr[args->boxes_ptr[j].box_idx * 4],
+                                                          args,
+                                                          j,
                                                           args->coordinates_offset);
                 box_is_selected = (iou < iou_threshold);
                 if (!box_is_selected || scoreI_equal_to_threshold) // TODO: scoreI_equal_to_threshold - bug in reference impl?
@@ -127,22 +128,27 @@ private:
                 if (iou_threshold > 0.5f) {
                     iou_threshold *= args->nms_eta;
                 }
-                args->boxes_ptr[num_boxes_selected++] = args->boxes_ptr[i];
+                args->boxes_ptr[num_boxes_selected] = args->boxes_ptr[i];
+                args->xmin_ptr[num_boxes_selected] = box_coords[0];
+                args->ymin_ptr[num_boxes_selected] = box_coords[1];
+                args->xmax_ptr[num_boxes_selected] = box_coords[2];
+                args->ymax_ptr[num_boxes_selected] = box_coords[3];
+                ++num_boxes_selected;
             }
         }
 
         *args->num_boxes_selected_ptr = num_boxes_selected;
     }
 
-    static float intersection_over_union(const float* boxesI, const float* boxesJ, const float norm) {
+    static float intersection_over_union(const float* boxesI, const jit_nms_call_args* args, int j, const float norm) {
         float xminI = boxesI[0];
         float yminI = boxesI[1];
         float xmaxI = boxesI[2];
         float ymaxI = boxesI[3];
-        float xminJ = boxesJ[0];
-        float yminJ = boxesJ[1];
-        float xmaxJ = boxesJ[2];
-        float ymaxJ = boxesJ[3];
+        float xminJ = args->xmin_ptr[j];
+        float yminJ = args->ymin_ptr[j];
+        float xmaxJ = args->xmax_ptr[j];
+        float ymaxJ = args->ymax_ptr[j];
 
         float areaI = (ymaxI - yminI + norm) * (xmaxI - xminI + norm);
         float areaJ = (ymaxJ - yminJ + norm) * (xmaxJ - xminJ + norm);
