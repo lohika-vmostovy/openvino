@@ -36,6 +36,11 @@ public:
         int num_boxes;
         const float* coords_ptr;
 
+        float* xmin_ptr;
+        float* ymin_ptr;
+        float* xmax_ptr;
+        float* ymax_ptr;
+
         std::size_t* num_boxes_selected_ptr;
     };
 

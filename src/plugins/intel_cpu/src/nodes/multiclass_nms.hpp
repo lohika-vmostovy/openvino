@@ -102,8 +102,18 @@ private:
         std::vector<std::vector<size_t>> num_boxes_per_batch_and_class; // number of rois after nms for each class in each image
         std::vector<int> num_boxes_per_batch;
 
+        std::vector<float> coords; // internal buffer for kernel
+
+        size_t thread_offset_for(int batch_idx, int class_idx) const {
+            return batch_idx * num_classes_ * num_boxes_ + class_idx * num_boxes_;
+        }
+
         Box* thread_workspace_for(int batch_idx, int class_idx) {
-            return boxes.data() + batch_idx * num_classes_ * num_boxes_ + class_idx * num_boxes_;
+            return boxes.data() + thread_offset_for(batch_idx, class_idx);
+        }
+
+        float* thread_coords_for(int batch_idx, int class_idx, int buffer_idx) {
+            return coords.data() + 4 * thread_offset_for(batch_idx, class_idx) + buffer_idx * num_boxes_;
         }
 
         Buffer flatten_all();

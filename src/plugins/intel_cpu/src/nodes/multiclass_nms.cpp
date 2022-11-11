@@ -102,6 +102,7 @@ MultiClassNms::Workbuffers::Workbuffers(size_t num_batches, size_t num_classes, 
     : boxes(num_batches * num_classes * num_boxes),
       num_boxes_per_batch_and_class(num_batches),
       num_boxes_per_batch(num_batches, 0),
+      coords(num_batches * num_classes * num_boxes * 4),
       num_batches_{num_batches}, num_classes_{num_classes}, num_boxes_{num_boxes} {
     for (auto &class_dim : num_boxes_per_batch_and_class) {
         class_dim.resize(num_classes, 0);
@@ -432,6 +433,10 @@ void MultiClassNms::multiclass_nms(const float* in_boxes, const float* in_scores
         args.boxes_ptr = boxes;
         args.num_boxes = num_boxes_per_class;
         args.coords_ptr = input_boxes;
+        args.xmin_ptr = workbuffers_->thread_coords_for(batch_idx, class_idx, 0);
+        args.ymin_ptr = workbuffers_->thread_coords_for(batch_idx, class_idx, 1);
+        args.xmax_ptr = workbuffers_->thread_coords_for(batch_idx, class_idx, 2);
+        args.ymax_ptr = workbuffers_->thread_coords_for(batch_idx, class_idx, 3);
         args.num_boxes_selected_ptr = &workbuffers_->num_boxes_per_batch_and_class[batch_idx][class_idx];
         nms_kernel_->operator()(&args);
     });
