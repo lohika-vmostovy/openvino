@@ -88,17 +88,13 @@ private:
     static constexpr unsigned VCMPPS_GE = 0x0d;
     static constexpr unsigned simd_width = details::x64::cpu_isa_traits<isa>::vlen / sizeof(float);
 
-    void inline_get_box_ptr(Reg64 boxes_ptr, Reg64 box_idx, Reg64 result);
-    void inline_get_box_coords_ptr(Reg64 box_ptr, Reg64 coords_array_ptr, Reg64 result);
-    void inline_get_box_coords_ptr(Reg64 boxes_ptr, Reg64 box_idx, Reg64 coords_vector_ptr, Reg64 result);
-    void inline_pinsrd(const Vmm& x1, const Operand& op, const int imm);
+    void get_box_ptr(Reg64 boxes_ptr, Reg64 box_idx, Reg64 result);
+    void get_box_coords_ptr(Reg64 box_ptr, Reg64 coords_array_ptr, Reg64 result);
+    void load_simd_register(const Vmm& reg, const Reg64& buff_ptr, const Reg64& buff_size, const Reg64& index);
 
 private:
+    RegistersPool::Ptr reg_pool_;
     Reg64 reg_params_;
-
-    RegistersPool::Ptr reg_pool_ = RegistersPool::create<isa>({
-        Reg64(Operand::RAX), Reg64(Operand::RBP), Reg64(Operand::RSI), Reg64(Operand::RDI)
-    });
 };
 
 
@@ -115,13 +111,14 @@ private:
             bool box_is_selected = true;
             const bool scoreI_equal_to_threshold = (args->boxes_ptr[i].score == args->score_threshold);
             const float* const box_coords = &args->coords_ptr[args->boxes_ptr[i].box_idx * 4];
-            for (int j = num_boxes_selected - 1; j >= 0; j--) {
+            const int from_idx = scoreI_equal_to_threshold ? std::max(num_boxes_selected - 1, 0) : 0; // TODO: bug in reference impl?
+            for (int j = from_idx; j < num_boxes_selected; ++j) {
                 const float iou = intersection_over_union(box_coords,
                                                           args,
                                                           j,
                                                           args->coordinates_offset);
                 box_is_selected = (iou < iou_threshold);
-                if (!box_is_selected || scoreI_equal_to_threshold) // TODO: scoreI_equal_to_threshold - bug in reference impl?
+                if (!box_is_selected)
                     break;
             }
             if (box_is_selected) {
