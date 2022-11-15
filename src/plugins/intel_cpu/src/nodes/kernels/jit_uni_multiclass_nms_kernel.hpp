@@ -94,7 +94,6 @@ private:
 
 private:
     RegistersPool::Ptr reg_pool_;
-    Reg64 reg_params_;
 };
 
 
