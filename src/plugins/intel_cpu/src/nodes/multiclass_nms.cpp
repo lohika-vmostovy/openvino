@@ -308,16 +308,20 @@ bool MultiClassNms::isExecutable() const {
 void MultiClassNms::createPrimitive() {
     Node::createPrimitive();
 
-    if (x64::mayiuse(x64::avx512_core)) {
-        nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
-    } else if (x64::mayiuse(x64::avx2)) {
-        nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
-    } else if (x64::mayiuse(x64::sse41)) {
-        nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
-    } else {
-        DEBUG_LOG("Unable to create jit_uni_multiclass_nms_kernel due to unsupported ISA. Non-JIT version will be executed.");
-        nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_fallback {});
-    }
+    // if (x64::mayiuse(x64::avx512_core)) {
+    //     nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
+    // } else if (x64::mayiuse(x64::avx2)) {
+    //     nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
+    // } else if (x64::mayiuse(x64::sse41)) {
+    //     nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
+    // } else {
+    //     DEBUG_LOG("Unable to create jit_uni_multiclass_nms_kernel due to unsupported ISA. Non-JIT version will be executed.");
+    //     nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_fallback {});
+    // }
+
+    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
+    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
+    nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
 
     nms_kernel_->create_ker();
 }
