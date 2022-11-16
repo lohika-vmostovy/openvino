@@ -193,23 +193,23 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
 
                 // if (areaI <= 0.f || areaJ <= 0.f)
                 //     reg_iou = 0.f;
+                // reg_iou = intersection_area / iou_denominator
                 PVmm zero {reg_pool_};
                 uni_vpxor(zero, zero, zero);
                 if (isa == avx512_core) {
                     vcmpps(k1, areaI, zero, VCMPPS_GT);
                     vcmpps(k2, areaJ, zero, VCMPPS_GT);
                     kandw(k1, k1, k2);
-                    reg_iou = PVmm {reg_pool_};
-                    vdivps(static_cast<Vmm>(reg_iou)|k1|T_z, intersection_area, iou_denominator);
+                    vdivps(static_cast<Vmm>(intersection_area)|k1|T_z, intersection_area, iou_denominator);
+                    reg_iou = std::move(intersection_area);
                 } else {
                     PVmm maskI {reg_pool_};
                     PVmm maskJ {reg_pool_};
                     uni_vcmpps(maskI, areaI, zero, VCMPPS_GT);
                     uni_vcmpps(maskJ, areaJ, zero, VCMPPS_GT);
                     uni_vandps(maskI, maskI, maskJ);
-                    // reg_iou = intersection_area / (areaI + areaJ - intersection_area)
-                    reg_iou = PVmm {reg_pool_};
-                    uni_vdivps(reg_iou, intersection_area, iou_denominator);
+                    uni_vdivps(intersection_area, intersection_area, iou_denominator);
+                    reg_iou = std::move(intersection_area);
                     uni_vandps(reg_iou, reg_iou, maskI);
                 }
             }
