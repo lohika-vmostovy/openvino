@@ -335,6 +335,26 @@ void jit_uni_multiclass_nms_kernel_impl<sse41>::load_simd_register(
 template <>
 void jit_uni_multiclass_nms_kernel_impl<avx2>::load_simd_register(
     const Xbyak::Ymm& reg, const Reg64& buff_ptr, const Reg64& buff_size, const Reg64& index) {
+    PReg64 num_elements {reg_pool_};
+    mov(num_elements, buff_size);
+    sub(num_elements, index);
+    PReg64 reg_simd_width {reg_pool_};
+    mov(reg_simd_width, simd_width);
+    cmp(num_elements, reg_simd_width);
+    cmovg(num_elements, reg_simd_width);
+    reg_simd_width.release();
+
+    static const uint32_t mask[simd_width * 2] STRUCT_ALIGN(32) = {
+        0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000,
+        0, 0, 0, 0, 0, 0, 0, 0
+    };
+    PReg64 reg_mask_ptr {reg_pool_};
+    mov(reg_mask_ptr, reinterpret_cast<uint64_t>(&mask[simd_width]));
+    PVmm reg_mask {reg_pool_};
+    shl(num_elements, 2);
+    sub(reg_mask_ptr, num_elements);
+    vmovups(reg_mask, ptr[reg_mask_ptr]);
+    vmaskmovps(reg, reg_mask, ptr[buff_ptr + sizeof(float) * index]);
 }
 
 template <>
