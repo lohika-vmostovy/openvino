@@ -320,8 +320,8 @@ void MultiClassNms::createPrimitive() {
     // }
 
     // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
-    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
-    nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
+    nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
+    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
 
     nms_kernel_->create_ker();
 }

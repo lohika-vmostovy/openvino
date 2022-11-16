@@ -330,6 +330,27 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::get_box_coords_ptr(
 template <>
 void jit_uni_multiclass_nms_kernel_impl<sse41>::load_simd_register(
     const Xbyak::Xmm& reg, const Reg64& buff_ptr, const Reg64& buff_size, const Reg64& index) {
+    movups(reg, ptr[buff_ptr + sizeof(float) * index]);
+
+    PReg64 num_elements {reg_pool_};
+    mov(num_elements, buff_size);
+    sub(num_elements, index);
+    PReg64 reg_simd_width {reg_pool_};
+    mov(reg_simd_width, simd_width);
+    cmp(num_elements, reg_simd_width);
+    cmovg(num_elements, reg_simd_width);
+    reg_simd_width.release();
+
+    static const uint32_t mask[simd_width * 2] STRUCT_ALIGN(16) = {
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0
+    };
+    PReg64 reg_mask_ptr {reg_pool_};
+    mov(reg_mask_ptr, reinterpret_cast<uint64_t>(&mask[simd_width]));
+    shl(num_elements, 2);
+    sub(reg_mask_ptr, num_elements);
+    PVmm reg_mask {reg_pool_};
+    movups(reg_mask, ptr[reg_mask_ptr]);
+    andps(reg, reg_mask);
 }
 
 template <>
