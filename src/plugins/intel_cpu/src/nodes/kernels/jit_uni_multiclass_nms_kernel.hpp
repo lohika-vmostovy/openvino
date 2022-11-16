@@ -91,6 +91,7 @@ private:
     void get_box_ptr(Reg64 boxes_ptr, Reg64 box_idx, Reg64 result);
     void get_box_coords_ptr(Reg64 box_ptr, Reg64 coords_array_ptr, Reg64 result);
     void load_simd_register(const Vmm& reg, const Reg64& buff_ptr, const Reg64& buff_size, const Reg64& index);
+    void get_simd_tail_length(const Reg64& buff_size, const Reg64& index, const Reg64& result);
 
 private:
     RegistersPool::Ptr reg_pool_;

@@ -333,13 +333,7 @@ void jit_uni_multiclass_nms_kernel_impl<sse41>::load_simd_register(
     movups(reg, ptr[buff_ptr + sizeof(float) * index]);
 
     PReg64 num_elements {reg_pool_};
-    mov(num_elements, buff_size);
-    sub(num_elements, index);
-    PReg64 reg_simd_width {reg_pool_};
-    mov(reg_simd_width, simd_width);
-    cmp(num_elements, reg_simd_width);
-    cmovg(num_elements, reg_simd_width);
-    reg_simd_width.release();
+    get_simd_tail_length(buff_size, index, num_elements);
 
     static const uint32_t mask[simd_width * 2] STRUCT_ALIGN(16) = {
         0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0
@@ -357,13 +351,7 @@ template <>
 void jit_uni_multiclass_nms_kernel_impl<avx2>::load_simd_register(
     const Xbyak::Ymm& reg, const Reg64& buff_ptr, const Reg64& buff_size, const Reg64& index) {
     PReg64 num_elements {reg_pool_};
-    mov(num_elements, buff_size);
-    sub(num_elements, index);
-    PReg64 reg_simd_width {reg_pool_};
-    mov(reg_simd_width, simd_width);
-    cmp(num_elements, reg_simd_width);
-    cmovg(num_elements, reg_simd_width);
-    reg_simd_width.release();
+    get_simd_tail_length(buff_size, index, num_elements);
 
     static const uint32_t mask[simd_width * 2] STRUCT_ALIGN(32) = {
         0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000,
@@ -385,12 +373,7 @@ void jit_uni_multiclass_nms_kernel_impl<avx512_core>::load_simd_register(
     push(rcx);
 #endif
     Reg64 num_elements {Operand::RCX};
-    mov(num_elements, buff_size);
-    sub(num_elements, index);
-    PReg64 reg_simd_width {reg_pool_};
-    mov(reg_simd_width, simd_width);
-    cmp(num_elements, reg_simd_width);
-    cmovg(num_elements, reg_simd_width);
+    get_simd_tail_length(buff_size, index, num_elements);
 
     // mask = 2^num_elements - 1
     PReg64 mask {reg_pool_};
@@ -403,6 +386,17 @@ void jit_uni_multiclass_nms_kernel_impl<avx512_core>::load_simd_register(
 #ifdef _WIN32
     pop(rcx);
 #endif
+}
+
+template <cpu_isa_t isa>
+void jit_uni_multiclass_nms_kernel_impl<isa>::get_simd_tail_length(
+    const Reg64& buff_size, const Reg64& index, const Reg64& result) {
+    mov(result, buff_size);
+    sub(result, index);
+    PReg64 reg_simd_width {reg_pool_};
+    mov(reg_simd_width, simd_width);
+    cmp(result, reg_simd_width);
+    cmovg(result, reg_simd_width);
 }
 
 template class jit_uni_multiclass_nms_kernel_impl<sse41>;
