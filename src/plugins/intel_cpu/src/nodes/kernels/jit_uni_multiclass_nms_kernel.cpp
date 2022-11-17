@@ -26,7 +26,6 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
     Label box_loop_end_label;
 
     Label iou_loop_label;
-    Label iou_loop_continue_label;
     Label iou_loop_end_label;
 
     Label const_fhalf;
@@ -34,9 +33,6 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
     // float iou_threshold;
     PVmm reg_iou_threshold {reg_pool_};
     uni_vbroadcastss(reg_iou_threshold, ptr[param1 + offsetof(jit_nms_call_args, iou_threshold)]);
-    // float score_threshold, used as integer for equality checks
-    PReg32 reg_score_threshold {reg_pool_};
-    mov(reg_score_threshold, dword[param1 + offsetof(jit_nms_call_args, score_threshold)]);
     // float nms_eta;
     PVmm reg_nms_eta {reg_pool_};
     uni_vbroadcastss(reg_nms_eta, ptr[param1 + offsetof(jit_nms_call_args, nms_eta)]);
@@ -53,6 +49,15 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
     // const float* coords_ptr;
     PReg64 reg_coords_array_ptr {reg_pool_};
     mov(reg_coords_array_ptr, qword[param1 + offsetof(jit_nms_call_args, coords_ptr)]);
+
+    PReg64 reg_xmin_ptr {reg_pool_};
+    PReg64 reg_ymin_ptr {reg_pool_};
+    PReg64 reg_xmax_ptr {reg_pool_};
+    PReg64 reg_ymax_ptr {reg_pool_};
+    mov(reg_xmin_ptr, qword[param1 + offsetof(jit_nms_call_args, xmin_ptr)]);
+    mov(reg_ymin_ptr, qword[param1 + offsetof(jit_nms_call_args, ymin_ptr)]);
+    mov(reg_xmax_ptr, qword[param1 + offsetof(jit_nms_call_args, xmax_ptr)]);
+    mov(reg_ymax_ptr, qword[param1 + offsetof(jit_nms_call_args, ymax_ptr)]);
 
     PVmm reg_halfs {reg_pool_};
     uni_vbroadcastss(reg_halfs, ptr[rip + const_fhalf]);
@@ -111,15 +116,19 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
         //                   reg_j < num_boxes_selected;
         //                   reg_j += simd_width)
         PReg64 reg_j {reg_pool_};
-        mov(reg_j, reg_num_boxes_selected);
-        dec(reg_j);
-        PReg64 reg_zero {reg_pool_};
-        xor_(reg_zero, reg_zero);
-        cmp(box_score, reg_score_threshold);
-        cmovne(reg_j, reg_zero);
-        test(reg_num_boxes_selected, reg_num_boxes_selected);
-        cmovz(reg_j, reg_zero);
-        reg_zero.release();
+        {
+            Reg32 reg_score_threshold {Operand::ECX};
+            mov(reg_score_threshold, dword[param1 + offsetof(jit_nms_call_args, score_threshold)]);
+            Reg64 reg_zero {Operand::RAX};
+            xor_(reg_zero, reg_zero);
+            mov(reg_j, reg_num_boxes_selected);
+            dec(reg_j);
+            cmp(box_score, reg_score_threshold);
+            cmovne(reg_j, reg_zero);
+            test(reg_num_boxes_selected, reg_num_boxes_selected);
+            cmovz(reg_j, reg_zero);
+            box_score.release();
+        }
 #endif
         L(iou_loop_label);
         {
@@ -130,15 +139,10 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
             PVmm yminJ {reg_pool_};
             PVmm xmaxJ {reg_pool_};
             PVmm ymaxJ {reg_pool_};
-
-            mov(rax, qword[param1 + offsetof(jit_nms_call_args, xmin_ptr)]);
-            load_simd_register(xminJ, rax, reg_num_boxes_selected, reg_j);
-            mov(rax, qword[param1 + offsetof(jit_nms_call_args, ymin_ptr)]);
-            load_simd_register(yminJ, rax, reg_num_boxes_selected, reg_j);
-            mov(rax, qword[param1 + offsetof(jit_nms_call_args, xmax_ptr)]);
-            load_simd_register(xmaxJ, rax, reg_num_boxes_selected, reg_j);
-            mov(rax, qword[param1 + offsetof(jit_nms_call_args, ymax_ptr)]);
-            load_simd_register(ymaxJ, rax, reg_num_boxes_selected, reg_j);
+            load_simd_register(xminJ, reg_xmin_ptr, reg_num_boxes_selected, reg_j);
+            load_simd_register(yminJ, reg_ymin_ptr, reg_num_boxes_selected, reg_j);
+            load_simd_register(xmaxJ, reg_xmax_ptr, reg_num_boxes_selected, reg_j);
+            load_simd_register(ymaxJ, reg_ymax_ptr, reg_num_boxes_selected, reg_j);
 
             // const float iou = intersection_over_union();
             PVmm reg_iou;
@@ -229,7 +233,6 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
                 }
             }
 
-            // L(iou_loop_continue_label);
             add(reg_j, simd_width);
             jmp(iou_loop_label, T_NEAR);
         }
@@ -256,8 +259,9 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
             {
                 // copy box
                 {
-                    PReg64 src {reg_pool_};
-                    PReg64 dst {reg_pool_};
+                    PReg64 tmp {reg_pool_};
+                    Reg64 src {Operand::RCX};
+                    Reg64 dst {Operand::RAX};
                     assert(sizeof(Box) == 16);
                     mov(src, reg_i);
                     shl(src, 4);
@@ -265,23 +269,17 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
                     mov(dst, reg_num_boxes_selected);
                     shl(dst, 4);
                     lea(dst, ptr[reg_boxes_ptr + dst]);
-                    mov(rax, qword[src]);
-                    mov(qword[dst], rax);
-                    mov(rax, qword[src + 8]);
-                    mov(qword[dst + 8], rax);
+                    mov(tmp, qword[src]);
+                    mov(qword[dst], tmp);
+                    mov(tmp, qword[src + 8]);
+                    mov(qword[dst + 8], tmp);
                 }
 
-                // copy box coords
-                {
-                    mov(rax, qword[param1 + offsetof(jit_nms_call_args, xmin_ptr)]);
-                    uni_vmovss(dword[rax + sizeof(float)*reg_num_boxes_selected], xminI);
-                    mov(rax, qword[param1 + offsetof(jit_nms_call_args, ymin_ptr)]);
-                    uni_vmovss(dword[rax + sizeof(float)*reg_num_boxes_selected], yminI);
-                    mov(rax, qword[param1 + offsetof(jit_nms_call_args, xmax_ptr)]);
-                    uni_vmovss(dword[rax + sizeof(float)*reg_num_boxes_selected], xmaxI);
-                    mov(rax, qword[param1 + offsetof(jit_nms_call_args, ymax_ptr)]);
-                    uni_vmovss(dword[rax + sizeof(float)*reg_num_boxes_selected], ymaxI);
-                }
+                // store box coords
+                uni_vmovss(dword[reg_xmin_ptr + sizeof(float)*reg_num_boxes_selected], xminI);
+                uni_vmovss(dword[reg_ymin_ptr + sizeof(float)*reg_num_boxes_selected], yminI);
+                uni_vmovss(dword[reg_xmax_ptr + sizeof(float)*reg_num_boxes_selected], xmaxI);
+                uni_vmovss(dword[reg_ymax_ptr + sizeof(float)*reg_num_boxes_selected], ymaxI);
 
                 inc(reg_num_boxes_selected);
             }
@@ -312,7 +310,7 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::generate() {
 
 template <cpu_isa_t isa>
 void jit_uni_multiclass_nms_kernel_impl<isa>::get_box_ptr(
-    Reg64 boxes_ptr, Reg64 box_idx, Reg64 result) {
+    const Reg64& boxes_ptr, const Reg64& box_idx, const Reg64& result) {
     assert(sizeof(Box) == 16);
     mov(result, box_idx);
     shl(result, 4);
@@ -321,7 +319,7 @@ void jit_uni_multiclass_nms_kernel_impl<isa>::get_box_ptr(
 
 template <cpu_isa_t isa>
 void jit_uni_multiclass_nms_kernel_impl<isa>::get_box_coords_ptr(
-    Reg64 box_ptr, Reg64 coords_array_ptr, Reg64 result) {
+    const Reg64& box_ptr, const Reg64& coords_array_ptr, const Reg64& result) {
     mov(result.cvt32(), dword[box_ptr + offsetof(Box, box_idx)]);
     shl(result, 4);
     lea(result, ptr[coords_array_ptr + result]);
