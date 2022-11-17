@@ -102,7 +102,7 @@ MultiClassNms::Workbuffers::Workbuffers(size_t num_batches, size_t num_classes, 
     : boxes(num_batches * num_classes * num_boxes),
       num_boxes_per_batch_and_class(num_batches),
       num_boxes_per_batch(num_batches, 0),
-      coords(num_batches * num_classes * num_boxes * 4),
+      coords(coords_buffer_size(num_batches, num_classes, num_boxes)),
       num_batches_{num_batches}, num_classes_{num_classes}, num_boxes_{num_boxes} {
     for (auto &class_dim : num_boxes_per_batch_and_class) {
         class_dim.resize(num_classes, 0);
@@ -115,7 +115,7 @@ MultiClassNms::Buffer MultiClassNms::Workbuffers::flatten_all() {
         size_t num_boxes_in_batch = 0;
         for (size_t class_idx = 0; class_idx < num_classes_; ++class_idx) {
             const size_t num_filt_boxes = num_boxes_per_batch_and_class[batch_idx][class_idx];
-            const Box* const src_buffer = thread_workspace_for(batch_idx, class_idx);
+            const Box* const src_buffer = thread_boxes_for(batch_idx, class_idx);
             for (size_t i = 0; i < num_filt_boxes; i++) {
                 boxes[dst_offset + i] = src_buffer[i];
             }
@@ -319,9 +319,9 @@ void MultiClassNms::createPrimitive() {
     //     nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_fallback {});
     // }
 
-    nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
+    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx2> {});
     // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::sse41> {});
-    // nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
+    nms_kernel_.reset(new jit_uni_multiclass_nms_kernel_impl<x64::avx512_core> {});
 
     nms_kernel_->create_ker();
 }
@@ -397,7 +397,7 @@ void MultiClassNms::multiclass_nms(const float* in_boxes, const float* in_scores
         const float* input_boxes = inputs_->boxes(batch_idx, class_idx, in_boxes, in_roisnum);
         const float* input_scores = inputs_->scores(batch_idx, class_idx, in_scores, in_roisnum);
 
-        Box* const boxes = workbuffers_->thread_workspace_for(batch_idx, class_idx);
+        Box* const boxes = workbuffers_->thread_boxes_for(batch_idx, class_idx);
 
         int num_boxes_selected = 0;
         for (int i = 0; i < num_input_boxes; ++i) {

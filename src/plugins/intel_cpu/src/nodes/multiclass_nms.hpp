@@ -104,16 +104,19 @@ private:
 
         std::vector<float> coords; // internal buffer for kernel
 
-        size_t thread_offset_for(int batch_idx, int class_idx) const {
-            return batch_idx * num_classes_ * num_boxes_ + class_idx * num_boxes_;
-        }
-
-        Box* thread_workspace_for(int batch_idx, int class_idx) {
-            return boxes.data() + thread_offset_for(batch_idx, class_idx);
+        Box* thread_boxes_for(int batch_idx, int class_idx) {
+            return boxes.data() + batch_idx * num_classes_ * num_boxes_ + class_idx * num_boxes_;
         }
 
         float* thread_coords_for(int batch_idx, int class_idx, int buffer_idx) {
-            return coords.data() + 4 * thread_offset_for(batch_idx, class_idx) + buffer_idx * num_boxes_;
+            // [num_batches, num_classes, num_buffers, buf_size]
+            const size_t buff_size = coords_buffer_size_for_thread(num_boxes_);
+            float* buffer = coords.data() +
+                batch_idx * num_classes_ * num_coord_buffers_per_thread * buff_size +
+                class_idx * num_coord_buffers_per_thread * buff_size +
+                buffer_idx * buff_size;
+            const size_t alignment = coord_buffers_alignment;
+            return reinterpret_cast<float*>((reinterpret_cast<uint64_t>(buffer) / alignment + 1) * alignment);
         }
 
         Buffer flatten_all();
@@ -121,6 +124,16 @@ private:
         Buffer flatten_batches();
 
     private:
+        static constexpr size_t coord_buffers_alignment = 64;
+        static constexpr size_t num_coord_buffers_per_thread = 4;
+        static size_t coords_buffer_size_for_thread(size_t num_boxes) {
+            return num_boxes + coord_buffers_alignment * 2;
+        }
+        static size_t coords_buffer_size(size_t num_batches, size_t num_classes, size_t num_boxes) {
+            const size_t num_threads = num_batches * num_classes;
+            return num_threads * num_coord_buffers_per_thread * coords_buffer_size_for_thread(num_boxes);
+        }
+
         const size_t num_batches_;
         const size_t num_classes_;
         const size_t num_boxes_;
